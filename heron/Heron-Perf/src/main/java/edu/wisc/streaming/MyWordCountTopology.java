@@ -13,18 +13,11 @@
 
 package edu.wisc.streaming;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
-import java.util.Vector;
 
-import org.apache.storm.Config;
-import org.apache.storm.LocalCluster;
 import org.apache.storm.generated.AlreadyAliveException;
 import org.apache.storm.generated.InvalidTopologyException;
 import org.apache.storm.kafka.KafkaSpout;
@@ -32,16 +25,16 @@ import org.apache.storm.kafka.SpoutConfig;
 import org.apache.storm.kafka.StringScheme;
 import org.apache.storm.kafka.ZkHosts;
 import org.apache.storm.spout.SchemeAsMultiScheme;
-import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.topology.base.BaseRichBolt;
-import org.apache.storm.topology.base.BaseRichSpout;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
-import org.apache.storm.tuple.Values;
+//import javassist.bytecode.Descriptor.Iterator;
+import org.apache.storm.Config;
+import org.apache.storm.StormSubmitter;
 
 
 /**
@@ -83,7 +76,7 @@ public final class MyWordCountTopology {
     @Override
     public void execute(Tuple tuple) {
       String key = (String) tuple.getValue(0);
-      //System.out.println("KEY = " + key );     
+      System.out.println("KEY = " + key );     
       Integer val = null;
       if (countMap.get(key) == null) {
         countMap.put(key, 1);
@@ -168,29 +161,38 @@ public final class MyWordCountTopology {
     conf.setComponentRam("word", 2L * 1024 * 1024 * 1024);
     conf.setComponentRam("consumer", 3L * 1024 * 1024 * 1024);
     conf.setContainerCpuRequested(6);
-    LocalCluster local = new LocalCluster();
     System.out.println("==================== Submitting the topology " +
     System.currentTimeMillis() + " ==========================");
+    /*
+    LocalCluster local = new LocalCluster();
     local.submitTopology(args[0], conf, builder.createTopology());
-    //StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
+    */
+    StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
     
-    backtype.storm.utils.Utils.sleep(10000);
 
+    /*
+    backtype.storm.utils.Utils.sleep(10000);
     System.out.println("==================== Killing the toplogy " +
     System.currentTimeMillis() + " ==========================");
     
     local.killTopology("MyWordCount");
     local.shutdown();
+    */
 
    /*
     System.out.println("Total Tuples Produced = " +
     spout.getProducedTupleCount());
-   */
-    
+   */ 
+    /*
     System.out.println("Total Tuples Processed = " +
     bolt.getProcessedTupleCount());
     
-
+    Iterator it = ConsumerBolt.countMap.entrySet().iterator();
+    while(it.hasNext()) {
+    	Map.Entry pair = (Map.Entry) it.next();
+    	System.out.println("Key = " + (String) pair.getKey() + " | value = " + ((Integer)pair.getValue()).toString());
+    }
+    */
   }
 }
 
