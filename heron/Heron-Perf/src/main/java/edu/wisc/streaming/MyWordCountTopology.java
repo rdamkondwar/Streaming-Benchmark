@@ -34,6 +34,7 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 //import javassist.bytecode.Descriptor.Iterator;
 import org.apache.storm.Config;
+import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
 
 
@@ -53,17 +54,22 @@ public final class MyWordCountTopology {
   }
 
 	class Constants {
-	  public static final long NTUPLES = 1000000; /* One Million */
+	  public static final long ONE_25_MILLION= 1250000; /* One Million */
+	  public static final long ONE_MILLION= 1000000; /* One Million */
+	  public static final long HALF_MILLION= 500000; /* One Million */
+	  public static final long QUARTER_MILLION= 250000; /* One Million */
+	  public static final long ONE_HUNDRED_THOUSAND= 100000; /* One Million */
+	  public static final long ONE_25_THOUSAND = 125000;
 	};
    /**
    * A bolt that counts the words that it receives
    */
   public static class ConsumerBolt extends BaseRichBolt {
     private static final long serialVersionUID = -5470591933906954522L;
-
+    public static long start_time = 0;
     private OutputCollector collector;
     public static Map<String, Integer> countMap;
-    static long ProcessedTupleCount;
+    static public long ProcessedTupleCount;
     int done = 0;
 
     @SuppressWarnings("rawtypes")
@@ -76,7 +82,7 @@ public final class MyWordCountTopology {
     @Override
     public void execute(Tuple tuple) {
       String key = (String) tuple.getValue(0);
-      System.out.println("KEY = " + key );     
+      //System.out.println("KEY = " + key );     
       Integer val = null;
       if (countMap.get(key) == null) {
         countMap.put(key, 1);
@@ -90,9 +96,10 @@ public final class MyWordCountTopology {
         System.out.println("==================== DONE with the input " + System.currentTimeMillis() + "==========================");
       }
       ProcessedTupleCount++;
-      if (ProcessedTupleCount % Constants.NTUPLES == 0) {
-        System.out.println("Processed " + ProcessedTupleCount + " Tuples " +
-        " With current one being String = " + key + " count = " + val.toString());
+      if (ProcessedTupleCount % Constants.ONE_25_MILLION == 0) {
+    	double time = (System.currentTimeMillis() - start_time);
+    	double div = 1000;
+        System.out.println(ProcessedTupleCount + ", " + time / div);
       }
       collector.ack(tuple);
     }
@@ -104,7 +111,7 @@ public final class MyWordCountTopology {
 
   /**
    * Main method
-   */
+   */                                                                                                                                                                                                                                                  
   public static void main(String[] args) throws AlreadyAliveException,
   InvalidTopologyException, Exception {
     System.out.println("====================MAIN STARTED at " +  System.currentTimeMillis() + " ==========================");
@@ -112,13 +119,14 @@ public final class MyWordCountTopology {
       throw new RuntimeException("Specify topology name");
     }
 
-    int parallelism = 1;
-    if (args.length > 1) {
-      System.out.println("\n" + args[1] + "\n\n"); 
+    
+    if (args.length > 3) {
+      System.out.println("Kafka Server = " + args[1] + " Topic name = " + args[2] + "\n\n"); 
     } else {
-    	System.out.println("Please enter the topic name");
+    	System.out.println("Please enter the host, topic name, parallelism");
     	return;
     }
+    int parallelism = Integer.parseInt(args[3]);
     /* Earlier Implmentation was to directly read from the the file. Now it
      * is done by kafka
      */
@@ -138,8 +146,8 @@ public final class MyWordCountTopology {
     System.out.println("==================== DONE reading the file " +
     System.currentTimeMillis() + " ==========================");
     
-    ZkHosts hosts = new ZkHosts("rockhopper-04.cs.wisc.edu:2181");
-    SpoutConfig spoutConfig = new SpoutConfig(hosts, args[1], "/" + args[1], UUID.randomUUID().toString());
+    ZkHosts hosts = new ZkHosts(args[1] + ":2181");
+    SpoutConfig spoutConfig = new SpoutConfig(hosts, args[2], "/" + args[2], UUID.randomUUID().toString());
     
     spoutConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
     KafkaSpout spout = new KafkaSpout(spoutConfig);
@@ -161,32 +169,56 @@ public final class MyWordCountTopology {
     conf.setComponentRam("word", 2L * 1024 * 1024 * 1024);
     conf.setComponentRam("consumer", 3L * 1024 * 1024 * 1024);
     conf.setContainerCpuRequested(6);
-    System.out.println("==================== Submitting the topology " +
-    System.currentTimeMillis() + " ==========================");
-    /*
+    System.out.println("==================== Submitting the topology " + System.currentTimeMillis() + " ==========================");
+        
     LocalCluster local = new LocalCluster();
+    ConsumerBolt.start_time = System.currentTimeMillis();
     local.submitTopology(args[0], conf, builder.createTopology());
-    */
-    StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
     
-
-    /*
-    backtype.storm.utils.Utils.sleep(10000);
+    // StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
+    
+    long prev = 0, curr = 0;
+    curr = bolt.getProcessedTupleCount();
+    
+    /* Wait till there is no processing */
+    while ( (curr - prev) == 0) {
+    	backtype.storm.utils.Utils.sleep(100);
+    	prev = curr;
+    	curr = bolt.getProcessedTupleCount();
+    }
+    
+    /* Wait till there is some tuples processed and when the number
+     * of processed tuples is zero, kill the topology.
+     */
+    while ((curr - prev) != 0) {
+    	backtype.storm.utils.Utils.sleep(100);
+    	prev = curr;
+    	curr = bolt.getProcessedTupleCount();    
+    }
+    
+    //backtype.storm.utils.Utils.sleep(30000); 
     System.out.println("==================== Killing the toplogy " +
     System.currentTimeMillis() + " ==========================");
     
+    double time = (System.currentTimeMillis() - ConsumerBolt.start_time);
+	double div = 1000;
+    System.out.println(ConsumerBolt.ProcessedTupleCount + ", " + time / div);
+    
+    //System.out.println("Total Tuples Processed = " +   bolt.getProcessedTupleCount());
+    
     local.killTopology("MyWordCount");
     local.shutdown();
-    */
+    
+   
 
    /*
     System.out.println("Total Tuples Produced = " +
     spout.getProducedTupleCount());
    */ 
-    /*
-    System.out.println("Total Tuples Processed = " +
-    bolt.getProcessedTupleCount());
     
+ 
+  
+    /*
     Iterator it = ConsumerBolt.countMap.entrySet().iterator();
     while(it.hasNext()) {
     	Map.Entry pair = (Map.Entry) it.next();
