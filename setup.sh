@@ -22,6 +22,7 @@ ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 cleanup() {
     rm -rf $DOWNLOAD_DIR
     rm -rf $SERVICES_DIR
+    rm -rf ~/.herondata
 
     mkdir $DOWNLOAD_DIR
     mkdir $SERVICES_DIR
@@ -47,12 +48,28 @@ setup_kafka() {
     echo "Done - Kafka"
 }
 
+setup_heron() {
+    echo "Downloading Heron"
+    wget -q -O $DOWNLOAD_DIR/heron-client-install-0.14.5-ubuntu.sh https://github.com/twitter/heron/releases/download/0.14.5/heron-client-install-0.14.5-ubuntu.sh 
+    wget -q -O $DOWNLOAD_DIR/heron-tools-install-0.14.5-ubuntu.sh https://github.com/twitter/heron/releases/download/0.14.5/heron-tools-install-0.14.5-ubuntu.sh 
+
+    echo "Installing Heron"
+    chmod +x $DOWNLOAD_DIR/heron-client-install-0.14.5-ubuntu.sh
+    chmod +x $DOWNLOAD_DIR/heron-tools-install-0.14.5-ubuntu.sh
+    $DOWNLOAD_DIR/heron-client-install-0.14.5-ubuntu.sh --prefix=/tmp/services/Heron --heronrc=/tmp/services/Heron/heron/etc/heron.heronrc
+    $DOWNLOAD_DIR/heron-tools-install-0.14.5-ubuntu.sh --prefix=/tmp/services/Heron 
+    export PATH=/tmp/services/Heron/bin:$PATH
+    echo "Done - Heron"
+
+}
+
 setup() {
     #Clean UP
     cleanup
 
     setup_kafka
     setup_spark
+    setup_heron
 }
 
 create_kafka_topic() {
@@ -102,7 +119,31 @@ main() {
     local action=$1
     if [ "SETUP" = "$action" ];
     then
-	setup
+      if [ $# -eq 2 ];
+      then
+      cleanup
+        for arg in "${@}"; do
+          case $arg in 
+            SETUP)
+            ;;
+            HERON)
+          setup_heron
+            ;;
+            SPARK)
+          setup_spark
+            ;;
+            KAFKA)
+          setup_kafka
+            ;;
+            *)
+            echo "Invalid Argument \"$arg\" to SETUP ";
+            exit
+            ;;
+          esac
+        done
+      else
+    setup
+      fi
     elif [ "START_SV" = "$action" ];
     then
 	start_kafka_service
@@ -111,7 +152,7 @@ main() {
     elif [ "STOP_SV" = "$action" ];
     then
 	stop_services
-    elif [ "CLEAN_UP" = "$action" ];
+    elif [ "CLEANUP" = "$action" ];
     then
 	cleanup
     fi
@@ -120,12 +161,12 @@ main() {
 help() {
     # echo $SPARK_MASTER_NODE_NAME
     echo "Starting Spark Slave with MASTER $SPARK_MASTER_NODE_NAME:$SPARK_MASTER_PORT"
-    echo "./setup.sh [SETUP, START_SV, STOP_SV, CLEANUP]"
+    echo "./setup.sh [SETUP [SPARK, KAFKA, HERON], START_SV, STOP_SV, CLEANUP]"
 }
 
-if [ $# -eq 1 ];
+if [ $# -gt 0 ];
 then
-    main $1
+    main ${@}
 else
     help
 fi
