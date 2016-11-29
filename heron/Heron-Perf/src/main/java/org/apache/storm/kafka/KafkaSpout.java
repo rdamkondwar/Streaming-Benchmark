@@ -84,8 +84,8 @@ public class KafkaSpout extends BaseRichSpout {
     }
     //Integer zkPort = spoutConfig.zkPort;
     zkServers = new ArrayList<String>();
-    zkServers.add("rockhopper-04.cs.wisc.edu");
-    spoutConfig.zkRoot = "/test";
+    // zkServers.add("rockhopper-04.cs.wisc.edu");
+    // spoutConfig.zkRoot = "/test";
     
     Integer zkPort = 2181;
     if (zkPort == null) {

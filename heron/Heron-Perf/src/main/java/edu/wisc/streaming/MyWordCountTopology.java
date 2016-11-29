@@ -197,19 +197,19 @@ public final class MyWordCountTopology {
     }
     
     //backtype.storm.utils.Utils.sleep(30000); 
-    System.out.println("==================== Killing the toplogy " +
-    System.currentTimeMillis() + " ==========================");
-    
+
     double time = (System.currentTimeMillis() - ConsumerBolt.start_time);
 	double div = 1000;
     System.out.println(ConsumerBolt.ProcessedTupleCount + ", " + time / div);
     
     //System.out.println("Total Tuples Processed = " +   bolt.getProcessedTupleCount());
+
+    System.out.println("==================== Killing the toplogy " +
+    System.currentTimeMillis() + " ==========================");
     
     local.killTopology("MyWordCount");
     local.shutdown();
     
-   
 
    /*
     System.out.println("Total Tuples Produced = " +
