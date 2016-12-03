@@ -27,6 +27,4 @@ sudo apt-get -y install libcurl4-nss-dev
 wget -c https://apache.bintray.com/aurora/ubuntu-trusty/aurora-executor_0.12.0_amd64.deb
 sudo dpkg -i aurora-executor_0.12.0_amd64.deb
 
-sudo vim -c "0 s/^/MESOS_ROOT=\/tmp\/mesos /" -c "wq" /etc/default/thermos
-
 sudo service thermos start
