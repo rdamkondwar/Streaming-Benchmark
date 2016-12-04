@@ -96,6 +96,10 @@ public final class MyWordCountTopology {
         System.out.println("==================== DONE with the input " + System.currentTimeMillis() + "==========================");
       }
       ProcessedTupleCount++;
+      if (ProcessedTupleCount == 1) {
+        start_time = System.currentTimeMillis();
+      }
+
       if (ProcessedTupleCount % Constants.ONE_25_MILLION == 0) {
     	double time = (System.currentTimeMillis() - start_time);
     	double div = 1000;
@@ -156,8 +160,8 @@ public final class MyWordCountTopology {
     ConsumerBolt bolt = new ConsumerBolt();
   
     TopologyBuilder builder = new TopologyBuilder();
-    builder.setSpout("word", spout, parallelism);
-    builder.setBolt("consumer", bolt, parallelism)
+    builder.setSpout("word", spout, 2);
+    builder.setBolt("consumer", bolt, 1)
         .fieldsGrouping("word", new Fields("word"));
     Config conf = new Config();
     conf.setNumStmgrs(parallelism);
@@ -166,17 +170,22 @@ public final class MyWordCountTopology {
     Set config here
     */
     
-    conf.setComponentRam("word", 2L * 1024 * 1024 * 1024);
-    conf.setComponentRam("consumer", 3L * 1024 * 1024 * 1024);
-    conf.setContainerCpuRequested(6);
+    // conf.setComponentRam("word", 2L * 1024 * 1024 * 1024);
+    // conf.setComponentRam("consumer", 3L * 1024 * 1024 * 1024);
+    // conf.setContainerCpuRequested(6);
+    conf.setContainerDiskRequested(1L * 1024 * 1024 * 1024);
     System.out.println("==================== Submitting the topology " + System.currentTimeMillis() + " ==========================");
         
     LocalCluster local = new LocalCluster();
     ConsumerBolt.start_time = System.currentTimeMillis();
-    local.submitTopology(args[0], conf, builder.createTopology());
+    // local.submitTopology(args[0], conf, builder.createTopology());
     
-    // StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
+    StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
+    System.out.println("==================== Done Submitting the topology " + System.currentTimeMillis() + " ==========================");
     
+    if (true)
+	return;
+
     long prev = 0, curr = 0;
     curr = bolt.getProcessedTupleCount();
     
@@ -204,12 +213,13 @@ public final class MyWordCountTopology {
     
     //System.out.println("Total Tuples Processed = " +   bolt.getProcessedTupleCount());
 
+    
+    /*
     System.out.println("==================== Killing the toplogy " +
     System.currentTimeMillis() + " ==========================");
-    
     local.killTopology("MyWordCount");
     local.shutdown();
-    
+    */
 
    /*
     System.out.println("Total Tuples Produced = " +
