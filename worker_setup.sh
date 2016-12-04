@@ -24,7 +24,7 @@ sudo apt-get install -y python2.7 wget
 # for the python mesos native bindings.
 sudo apt-get -y install libcurl4-nss-dev
  
-wget -c https://apache.bintray.com/aurora/ubuntu-trusty/aurora-executor_0.12.0_amd64.deb
-sudo dpkg -i aurora-executor_0.12.0_amd64.deb
+wget -c https://apache.bintray.com/aurora/ubuntu-trusty/aurora-executor_0.15.0_amd64.deb
+sudo dpkg -i aurora-executor_0.15.0_amd64.deb
 
 sudo service thermos start
