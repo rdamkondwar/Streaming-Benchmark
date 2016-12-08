@@ -27,4 +27,6 @@ sudo apt-get -y install libcurl4-nss-dev
 wget -c https://apache.bintray.com/aurora/ubuntu-trusty/aurora-executor_0.15.0_amd64.deb
 sudo dpkg -i aurora-executor_0.15.0_amd64.deb
 
+sudo apt-get install zip libunwind-setjmp0-dev zlib1g-dev unzip -y
+
 sudo service thermos start
