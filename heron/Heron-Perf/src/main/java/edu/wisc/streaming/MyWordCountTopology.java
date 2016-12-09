@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.storm.generated.AlreadyAliveException;
 import org.apache.storm.generated.InvalidTopologyException;
@@ -69,13 +70,20 @@ public final class MyWordCountTopology {
     public static long start_time = 0;
     private OutputCollector collector;
     public static Map<String, Integer> countMap;
-    static public long ProcessedTupleCount;
+    static public long ProcessedTupleCount = 0;
+    static private int ObjectCount = 0;
+    private int MyId;
     int done = 0;
 
+    public ConsumerBolt() {
+      ObjectCount++;
+      MyId = ObjectCount;
+    }
     @SuppressWarnings("rawtypes")
-    public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
+    public void prepare(Map map, TopologyContext topologyContext,
+      OutputCollector outputCollector) {
       collector = outputCollector;
-      countMap = new HashMap<String, Integer>();
+      countMap = new ConcurrentHashMap<String, Integer>();
       ProcessedTupleCount = 0;
     }
 
@@ -93,22 +101,28 @@ public final class MyWordCountTopology {
 
       if (key.equals("NULL") && done == 0) {
         done = 1;
-        System.out.println("==================== DONE with the input " + System.currentTimeMillis() + "==========================");
+        System.out.println("==================== DONE with the input "
+          + System.currentTimeMillis() + "==========================");
       }
-      ProcessedTupleCount++;
+
+      incrementProcessedTupleCount();
       if (ProcessedTupleCount == 1) {
         start_time = System.currentTimeMillis();
       }
 
-      if (ProcessedTupleCount % Constants.ONE_25_MILLION == 0) {
-    	double time = (System.currentTimeMillis() - start_time);
-    	double div = 1000;
-        System.out.println(ProcessedTupleCount + ", " + time / div);
+      if (ProcessedTupleCount % Constants.ONE_MILLION == 0) {
+        double time = (System.currentTimeMillis() - start_time);
+        double div = 1000;
+        System.out.println("Bolt" + MyId + ": " + ProcessedTupleCount + ", "
+          + time / div);
       }
       collector.ack(tuple);
     }
 
     public static long getProcessedTupleCount() { return ProcessedTupleCount; }
+    public static void incrementProcessedTupleCount() {
+      ProcessedTupleCount++;
+    } 
     public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
     }
   }
@@ -118,19 +132,25 @@ public final class MyWordCountTopology {
    */                                                                                                                                                                                                                                                  
   public static void main(String[] args) throws AlreadyAliveException,
   InvalidTopologyException, Exception {
-    System.out.println("====================MAIN STARTED at " +  System.currentTimeMillis() + " ==========================");
+    System.out.println("====================MAIN STARTED at " + 
+      System.currentTimeMillis() + " ==========================");
     if (args.length < 1) {
       throw new RuntimeException("Specify topology name");
     }
 
     
-    if (args.length > 3) {
-      System.out.println("Kafka Server = " + args[1] + " Topic name = " + args[2] + "\n\n"); 
+    if (args.length > 4) {
+      System.out.println("Kafka Server = " + args[1] + " Topic name = " +
+        args[2] + " SubmissionType = " +
+        ((args[3].equals("0")) ? "local" : "Cluster") +
+        " Paralellism = " + args[4] + "\n\n"); 
     } else {
-    	System.out.println("Please enter the host, topic name, parallelism");
+    	System.out.println("Please enter the host, topic name," + 
+        "local(0)/topology(1), parallelism");
     	return;
     }
-    int parallelism = Integer.parseInt(args[3]);
+    int TopologySubmission = Integer.parseInt(args[3]);
+    int parallelism = Integer.parseInt(args[4]);
     /* Earlier Implmentation was to directly read from the the file. Now it
      * is done by kafka
      */
@@ -151,7 +171,8 @@ public final class MyWordCountTopology {
     System.currentTimeMillis() + " ==========================");
     
     ZkHosts hosts = new ZkHosts(args[1] + ":2181");
-    SpoutConfig spoutConfig = new SpoutConfig(hosts, args[2], "/" + args[2], UUID.randomUUID().toString());
+    SpoutConfig spoutConfig = new SpoutConfig(hosts, args[2], "/" + args[2],
+      UUID.randomUUID().toString());
     
     spoutConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
     KafkaSpout spout = new KafkaSpout(spoutConfig);
@@ -160,27 +181,31 @@ public final class MyWordCountTopology {
     ConsumerBolt bolt = new ConsumerBolt();
   
     TopologyBuilder builder = new TopologyBuilder();
-    builder.setSpout("word", spout, 2);
-    builder.setBolt("consumer", bolt, 1)
-        .fieldsGrouping("word", new Fields("word"));
+    builder.setSpout("word", spout, parallelism).setNumTasks(parallelism);
+    builder.setBolt("consumer", bolt, parallelism).setNumTasks(parallelism)
+        .shuffleGrouping("word");
     Config conf = new Config();
     conf.setNumStmgrs(parallelism);
+    conf.setNumWorkers(parallelism);
 
     /*
     Set config here
     */
     
-    // conf.setComponentRam("word", 2L * 1024 * 1024 * 1024);
-    // conf.setComponentRam("consumer", 3L * 1024 * 1024 * 1024);
-    // conf.setContainerCpuRequested(6);
+    //conf.setComponentRam("word", 2L * 1024 * 1024 * 1024);
+    //conf.setComponentRam("consumer", 3L * 1024 * 1024 * 1024);
+    conf.setContainerCpuRequested(10);
     conf.setContainerDiskRequested(1L * 1024 * 1024 * 1024);
-    System.out.println("==================== Submitting the topology " + System.currentTimeMillis() + " ==========================");
+    System.out.println("==================== Submitting the topology " +
+      System.currentTimeMillis() + " ==========================");
         
-    LocalCluster local = new LocalCluster();
     ConsumerBolt.start_time = System.currentTimeMillis();
-    // local.submitTopology(args[0], conf, builder.createTopology());
-    
-    StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
+    if (TopologySubmission == 1) {
+      StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
+    } else {
+      LocalCluster local = new LocalCluster();
+      local.submitTopology(args[0], conf, builder.createTopology());
+    }
     System.out.println("==================== Done Submitting the topology " + System.currentTimeMillis() + " ==========================");
     
     if (true)
