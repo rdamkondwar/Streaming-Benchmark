@@ -50,8 +50,8 @@ import org.apache.storm.StormSubmitter;
  */
 
 
-public final class MyWordCountTopology {
-  private MyWordCountTopology() {
+public final class HashtagCountTopology {
+  private HashtagCountTopology () {
   }
 
 	class Constants {
@@ -83,7 +83,8 @@ public final class MyWordCountTopology {
     public void prepare(Map map, TopologyContext topologyContext,
       OutputCollector outputCollector) {
       collector = outputCollector;
-      countMap = new ConcurrentHashMap<String, Integer>();
+      // countMap = new ConcurrentHashMap<String, Integer>();
+      countMap = new HashMap<String, Integer>();
       ProcessedTupleCount = 0;
     }
 
@@ -208,8 +209,9 @@ public final class MyWordCountTopology {
     }
     System.out.println("==================== Done Submitting the topology " + System.currentTimeMillis() + " ==========================");
     
-    if (true)
-	return;
+    if (true) {
+      return;
+    }
 
     long prev = 0, curr = 0;
     curr = bolt.getProcessedTupleCount();
@@ -233,7 +235,7 @@ public final class MyWordCountTopology {
     //backtype.storm.utils.Utils.sleep(30000); 
 
     double time = (System.currentTimeMillis() - ConsumerBolt.start_time);
-	double div = 1000;
+    double div = 1000;
     System.out.println(ConsumerBolt.ProcessedTupleCount + ", " + time / div);
     
     //System.out.println("Total Tuples Processed = " +   bolt.getProcessedTupleCount());
