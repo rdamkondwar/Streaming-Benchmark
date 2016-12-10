@@ -100,7 +100,8 @@ public final class HashtagCountTopology {
 
       ProcessedTupleCount++;
 
-      if (ProcessedTupleCount % Constants.ONE_MILLION == 0) {
+      if (ProcessedTupleCount % Constants.ONE_25_MILLION == 0 || 
+        ProcessedTupleCount == 24743584) {
         double time = (System.currentTimeMillis() - start_time);
         double div = 1000;
         System.out.println("Bolt: " + ProcessedTupleCount + ", "
@@ -172,6 +173,7 @@ public static void main(String[] args) throws AlreadyAliveException,
     ConsumerBolt bolt = new ConsumerBolt();
   
     TopologyBuilder builder = new TopologyBuilder();
+    //builder.setSpout("word", spout);
     builder.setSpout("word", spout, parallelism).setNumTasks(parallelism);
     /* One Bolt which will read all values from the parallel spouts and will
      * perform the word frequecy count using a concurrent/hashmap
@@ -190,14 +192,20 @@ public static void main(String[] args) throws AlreadyAliveException,
     //conf.setComponentRam("word", 2L * 1024 * 1024 * 1024);
     //conf.setComponentRam("consumer", 3L * 1024 * 1024 * 1024);
     conf.setContainerCpuRequested(10);
-    conf.setContainerDiskRequested(1L * 1024 * 1024 * 1024);
+    conf.setContainerDiskRequested(2L * 1024 * 1024 * 1024);
+    // conf.put("TOPOLOGY_ACKER_EXECUTORS", parallelism);
+    // conf.put("topology.component.parallelism", parallelism);
+    /* Enable Acking */
+    // conf.setEnableAcking(true); conf.put("topology.max.spout.pending", 20000);
+    
     System.out.println("==================== Submitting the topology " +
       System.currentTimeMillis() + " ==========================");
-    conf.put("TOPOLOGY_ACKER_EXECUTORS", parallelism);
-    conf.put("topology.component.parallelism", parallelism);
-    conf.put("topology.max.spout.pending", 20000);
-    /* Enable Acking */
-    conf.setEnableAcking(true);
+    /* Set the maximum amount of tuples that spouts are waiting to be acked.
+     * If set very large, then toplogy may be overwhelmed, acking timeouts will
+     * happen and tuples are retransmitted. If set low, then thoughput will hit
+     * So need to set this value based on some experiments to figure out the
+     * right value.
+     */
 
     ConsumerBolt.start_time = System.currentTimeMillis();
     if (TopologySubmission == 1) {
