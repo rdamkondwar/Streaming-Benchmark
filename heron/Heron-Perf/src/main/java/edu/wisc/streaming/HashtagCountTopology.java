@@ -66,38 +66,19 @@ public final class HashtagCountTopology {
    * A bolt that counts the words that it receives
    */
   public static class ConsumerBolt extends BaseRichBolt {
-    public long start_time = 0;
+    public static long start_time = 0;
     private OutputCollector collector;
     public Map<String, Integer> countMap;
-    // static public long ProcessedTupleCount = 0;
-    static public Integer ProcessedTupleCount;
-    static private int ObjectCount = 0;
-    private int MyId;
-    int done = 0;
-
+    static public long ProcessedTupleCount = 0;
+    
     public ConsumerBolt() {
-      ObjectCount++;
-      MyId = ObjectCount;
-    }
-
-    public ConsumerBolt(Map m, Integer init) {
-      ObjectCount++;
-      MyId = ObjectCount;
-      if (m == null) {
-        System.out.println("m is null\n");
-      } else {
-        System.out.println("m is not null\n");
-      }
-      System.out.println("Assigning map " + m);
-      countMap = m;
-      ProcessedTupleCount = init;
     }
 
     @SuppressWarnings("rawtypes")
     public void prepare(Map map, TopologyContext topologyContext,
       OutputCollector outputCollector) {
       collector = outputCollector;
-      // countMap = new ConcurrentHashMap<String, Integer>();
+      countMap = new ConcurrentHashMap<String, Integer>();
       // countMap = new HashMap<String, Integer>();
       ProcessedTupleCount = 0;
     }
@@ -105,34 +86,24 @@ public final class HashtagCountTopology {
     @Override
     public void execute(Tuple tuple) {
       String key = (String) tuple.getValue(0);
-      //System.out.println("KEY = " + key );     
       Integer val = null;
       if (countMap.get(key) == null) {
         countMap.put(key, 1);
+        /* When the first tuple is processed, initialize the start_time */
+        if (ProcessedTupleCount == 0) {
+          start_time = System.currentTimeMillis();
+        }
       } else {
         val = countMap.get(key);
         countMap.put(key, ++val);
       }
 
-      if (key.equals("NULL") && done == 0) {
-        done = 1;
-        System.out.println("==================== DONE with the input "
-          + System.currentTimeMillis() + "==========================");
-      }
-
-      incrementProcessedTupleCount();
-      if (ProcessedTupleCount == 1) {
-        start_time = System.currentTimeMillis();
-      }
-
-      if (ProcessedTupleCount == 3) {
-          System.out.println("Map = " + countMap);
-      }
+      ProcessedTupleCount++;
 
       if (ProcessedTupleCount % Constants.ONE_MILLION == 0) {
         double time = (System.currentTimeMillis() - start_time);
         double div = 1000;
-        System.out.println("Bolt" + MyId + ": " + ProcessedTupleCount + ", "
+        System.out.println("Bolt: " + ProcessedTupleCount + ", "
           + time / div);
       }
       collector.ack(tuple);
@@ -148,8 +119,9 @@ public final class HashtagCountTopology {
 
   /**
    * Main method
-   */                                                                                                                                                                                                                                                  
-  public static void main(String[] args) throws AlreadyAliveException,
+   */ 
+
+public static void main(String[] args) throws AlreadyAliveException,
   InvalidTopologyException, Exception {
     System.out.println("====================MAIN STARTED at " + 
       System.currentTimeMillis() + " ==========================");
@@ -197,16 +169,14 @@ public final class HashtagCountTopology {
     KafkaSpout spout = new KafkaSpout(spoutConfig);
     
     // WordSpout spout = new WordSpout();
-    ConsumerBolt bolt = new ConsumerBolt(
-    new ConcurrentHashMap<String, Integer>(), new Integer(0));
+    ConsumerBolt bolt = new ConsumerBolt();
   
     TopologyBuilder builder = new TopologyBuilder();
     builder.setSpout("word", spout, parallelism).setNumTasks(parallelism);
-    /*
-    builder.setBolt("consumer", bolt, parallelism).setNumTasks(parallelism)
-        .shuffleGrouping("word");
-    */
-    builder.setBolt("consumer", bolt, 4).setNumTasks(4)
+    /* One Bolt which will read all values from the parallel spouts and will
+     * perform the word frequecy count using a concurrent/hashmap
+     */
+    builder.setBolt("consumer", bolt, 1).setNumTasks(1)
         .shuffleGrouping("word");
 
     Config conf = new Config();
@@ -223,7 +193,12 @@ public final class HashtagCountTopology {
     conf.setContainerDiskRequested(1L * 1024 * 1024 * 1024);
     System.out.println("==================== Submitting the topology " +
       System.currentTimeMillis() + " ==========================");
-        
+    conf.put("TOPOLOGY_ACKER_EXECUTORS", parallelism);
+    conf.put("topology.component.parallelism", parallelism);
+    conf.put("topology.max.spout.pending", 20000);
+    /* Enable Acking */
+    conf.setEnableAcking(true);
+
     ConsumerBolt.start_time = System.currentTimeMillis();
     if (TopologySubmission == 1) {
       StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
@@ -231,7 +206,8 @@ public final class HashtagCountTopology {
       LocalCluster local = new LocalCluster();
       local.submitTopology(args[0], conf, builder.createTopology());
     }
-    System.out.println("==================== Done Submitting the topology " + System.currentTimeMillis() + " ==========================");
+    System.out.println("==================== Done Submitting the topology " +
+      System.currentTimeMillis() + " ==========================");
     
     if (true) {
       return;
