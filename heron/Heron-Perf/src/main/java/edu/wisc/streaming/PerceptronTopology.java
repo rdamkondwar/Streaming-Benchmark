@@ -18,6 +18,12 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
 
 import org.apache.storm.generated.AlreadyAliveException;
 import org.apache.storm.generated.InvalidTopologyException;
@@ -50,10 +56,9 @@ import org.apache.storm.StormSubmitter;
  */
 
 
-public final class HashtagCountTopology {
-  private HashtagCountTopology () {
+public final class PerceptronTopology {
+  private PerceptronTopology() {
   }
-
 	class Constants {
 	  public static final long ONE_25_MILLION= 1250000; /* One Million */
 	  public static final long ONE_MILLION= 1000000; /* One Million */
@@ -68,10 +73,13 @@ public final class HashtagCountTopology {
   public static class ConsumerBolt extends BaseRichBolt {
     public static long start_time = 0;
     private OutputCollector collector;
-    public static Map<String, Integer> countMap;
+    // public static Map<String, Integer> countMap;
     static public long ProcessedTupleCount = 0;
-    public long sum = 0;
-    public long prev = 0, curr = 0;
+    BinaryFeature[] features = new BinaryFeature[20];
+    Double[] w_arr = new Double[] {-0.30,0.20,0.20,0.10,-0.00,-0.10,-0.30,0.20,0.40,-0.10,0.10,0.40,-0.10,-0.70,-0.20,-0.20,0.10,-0.50,-0.00,-0.90,-0.10};
+    Integer NUM_OF_FEATURES = 20;
+    ListOfExamples testExamplesSet = new ListOfExamples();
+    Perceptron p1 = new Perceptron(w_arr, NUM_OF_FEATURES);
     
     public ConsumerBolt() {
     }
@@ -80,40 +88,64 @@ public final class HashtagCountTopology {
     public void prepare(Map map, TopologyContext topologyContext,
       OutputCollector outputCollector) {
       collector = outputCollector;
-      countMap = new ConcurrentHashMap<String, Integer>();
+      // countMap = new ConcurrentHashMap<String, Integer>();
       // countMap = new HashMap<String, Integer>();
       ProcessedTupleCount = 0;
+      
+      features[0] = new BinaryFeature("FixedAcidityGt47","T","F");
+      features[1] = new BinaryFeature("volatileAcidityGt17","T","F");
+      features[2] = new BinaryFeature("volatileAcidityGt29","T","F");
+      features[3] = new BinaryFeature("citricAcidGt30","T","F");
+      features[4] = new BinaryFeature("residualSugarGtMean","T","F");
+      features[5] = new BinaryFeature("chloridesGt9","T","F");
+      features[6] = new BinaryFeature("freeSulfurDioxideGtMean","T","F");
+      features[7] = new BinaryFeature("totalSulfurDioxideGt27","T","F");
+      features[8] = new BinaryFeature("totalSulfurDioxideGt37","T","F");
+      features[9] = new BinaryFeature("totalSulfurDioxideGt54","T","F");
+      features[10] = new BinaryFeature("densityGt18","T","F");
+      features[11] = new BinaryFeature("densityGt41","T","F");
+      features[12] = new BinaryFeature("pHGtMean","T","F");
+      features[13] = new BinaryFeature("sulphatesGt12","T","F");
+      features[14] = new BinaryFeature("sulphatesGt15","T","F");
+      features[15] = new BinaryFeature("sulphatesGt19","T","F");
+      features[16] = new BinaryFeature("sulphatesGt44","T","F");
+      features[17] = new BinaryFeature("alcoholGt22","T","F");
+      features[18] = new BinaryFeature("alcoholGt33","T","F");
+      features[19] = new BinaryFeature("alcoholGt47","T","F");
+      
+      testExamplesSet.setFeatures(NUM_OF_FEATURES, features);
     }
 
     @Override
     public void execute(Tuple tuple) {
       String key = (String) tuple.getValue(0);
-      Integer val = null;
-      if (countMap.get(key) == null) {
-        countMap.put(key, 1);
-        /* When the first tuple is processed, initialize the start_time */
-        if (ProcessedTupleCount == 0) {
-          start_time = System.currentTimeMillis();
-          curr = System.nanoTime();
-        }
-      } else {
-        val = countMap.get(key);
-        countMap.put(key, ++val);
-      }
+      int ret = 0;
 
       ProcessedTupleCount++;
-      prev = curr;
-      curr = System.nanoTime();
-      sum += (curr - prev);
+      if (ProcessedTupleCount == 1) {
+        start_time = System.currentTimeMillis();
+      }
 
-      //System.out.println(countMap);
-      if (ProcessedTupleCount % Constants.ONE_25_MILLION == 0 || 
-        ProcessedTupleCount == 24743584) {
+      /* ============================================================ */
+      String example_str = key;
+      
+      // Read in the examples from the files.
+
+      //p1.printWeights(testExamplesSet);
+      Example e = ListOfExamples.parseExampleFromString(
+        example_str, testExamplesSet);
+      
+      ret = p1.runExample(e);
+
+    /* ==================================================================*/
+
+      if (ProcessedTupleCount % Constants.ONE_MILLION == 0 ||
+        ProcessedTupleCount == 26760892) {
         double time = (System.currentTimeMillis() - start_time);
         double div = 1000;
-        System.out.println("Bolt: " + ProcessedTupleCount + ", "
-          + time / div + "  Latency = " + (sum / ProcessedTupleCount) + 
-          " diff = " + (curr - prev));
+        System.out.print("Bolt: " + ProcessedTupleCount + ", "
+          + time / div);
+         //System.out.println("  Processed tuple " + key + " with ret = " + ret );
       }
       collector.ack(tuple);
     }
@@ -181,17 +213,17 @@ public static void main(String[] args) throws AlreadyAliveException,
     ConsumerBolt bolt = new ConsumerBolt();
   
     TopologyBuilder builder = new TopologyBuilder();
-    //builder.setSpout("word", spout);
-    builder.setSpout("word", spout, parallelism).setNumTasks(parallelism);
+    // builder.setSpout("word", spout);
+    builder.setSpout("example", spout, 1).setNumTasks(1);
     /* One Bolt which will read all values from the parallel spouts and will
      * perform the word frequecy count using a concurrent/hashmap
      */
     builder.setBolt("consumer", bolt, 1).setNumTasks(1)
-        .shuffleGrouping("word");
+        .shuffleGrouping("example");
 
     Config conf = new Config();
-    conf.setNumStmgrs(parallelism);
-    conf.setNumWorkers(parallelism);
+    //conf.setNumStmgrs(parallelism);
+    //conf.setNumWorkers(parallelism);
 
     /*
     Set config here
