@@ -9,4 +9,4 @@ setup_spark() {
 
     echo "Done - Spark"
 }
-
+setup_spark
