@@ -27,4 +27,5 @@ cp $GRAPHITE_ROOT/conf/graphite.wsgi.example $GRAPHITE_ROOT/conf/graphite.wsgi
 cp $GRAPHITE_ROOT/conf/aggregation-rules.conf.example $GRAPHITE_ROOT/conf/aggregation-rules.conf
 cp $GRAPHITE_ROOT/webapp/graphite/local_settings.py.example $GRAPHITE_ROOT/webapp/graphite/local_settings.py
 
+sed -i '/#DEBUG = True/c\DEBUG = True' $GRAPHITE_ROOT/webapp/graphite/local_settings.py
 #Run sudo $GRAPHITE_ROOT/run-graphite-devel-server.py /opt/graphite
