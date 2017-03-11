@@ -11,7 +11,7 @@ setup_spark() {
 }
 setup_spark
 
-parent_dir=`dirname $1`
+parent_dir=$(dirname $0)
 cp $parent_dir/props/metrics.properties spark-2.0.1-bin-hadoop2.7/conf/metrics.properties
 
 mkdir /users/rohitsd/hdfs
