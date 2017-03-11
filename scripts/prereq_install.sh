@@ -18,3 +18,6 @@ source /etc/profile.d/rohitsd.sh
 apt-get install -y tar wget git
 apt-get install -y build-essential python-dev libcurl4-nss-dev libsasl2-dev libsasl2-modules maven libapr1-dev libsvn-dev zlib1g-dev
 apt-get install -y zip libunwind-setjmp0-dev zlib1g-dev unzip
+
+echo 'export HADOOP_CONFIG=/proj/spark-heron-PG0/rohit/configs/configs' >> /etc/profile.d/rohitsd.sh
+echo 'export PATH=$PATH:/users/rohitsd/bin:/proj/spark-heron-PG0/rohit/hadoop-2.7.2/bin' >> /etc/profile.d/rohitsd.sh
