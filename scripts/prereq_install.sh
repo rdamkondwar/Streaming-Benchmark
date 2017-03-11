@@ -1,5 +1,6 @@
 #!/bin/bash
 #Run with sudo
+apt-get update
 apt-get -y install openjdk-8-jdk
 
 touch /etc/profile.d/rohitsd.sh
