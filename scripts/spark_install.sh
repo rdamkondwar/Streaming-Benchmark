@@ -10,3 +10,5 @@ setup_spark() {
     echo "Done - Spark"
 }
 setup_spark
+
+cp props/metrics.properties spark-2.0.1-bin-hadoop2.7/conf/metrics.properties
