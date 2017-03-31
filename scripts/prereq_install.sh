@@ -21,3 +21,5 @@ apt-get install -y zip libunwind-setjmp0-dev zlib1g-dev unzip
 
 echo 'export HADOOP_CONF_DIR=/proj/spark-heron-PG0/rohit/configs/configs' >> /etc/profile.d/rohitsd.sh
 echo 'export PATH=$PATH:/users/rohitsd/bin:/proj/spark-heron-PG0/rohit/hadoop-2.7.2/bin:/proj/spark-heron-PG0/rohit/hadoop-2.7.2/sbin' >> /etc/profile.d/rohitsd.sh
+
+cp -r /proj/spark-heron-PG0/rohit/ssh/id_rsa* /users/rohitsd/.ssh/
