@@ -23,3 +23,4 @@ echo 'export HADOOP_CONF_DIR=/proj/spark-heron-PG0/rohit/configs/configs' >> /et
 echo 'export PATH=$PATH:/users/rohitsd/bin:/proj/spark-heron-PG0/rohit/hadoop-2.7.2/bin:/proj/spark-heron-PG0/rohit/hadoop-2.7.2/sbin' >> /etc/profile.d/rohitsd.sh
 
 cp -r /proj/spark-heron-PG0/rohit/ssh/id_rsa* /users/rohitsd/.ssh/
+chown rohitsd:spark-heron-PG0 /users/rohitsd/.ssh/id_rsa*
