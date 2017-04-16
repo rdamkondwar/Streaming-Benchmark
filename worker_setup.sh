@@ -1,4 +1,6 @@
-MASTER="cp-2.exp7.spark-heron-pg0.utah.cloudlab.us"
+#!/bin/bash
+
+MASTER="cp-2"
 #echo "export JAVA_HOME=/usr/lib/jvm/java-8-oracle
 #export PATH=/usr/lib/jvm/java-8-oracle/jre/bin:\$PATH" >> ~/.bashrc
 
